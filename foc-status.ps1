@@ -3,7 +3,7 @@
 $ClusterName = "hvcluster"
 $DocumentServer = "192.168.5.26"
 $DocumentServerPort = "5551"
-$Tag = "FOC-CSV-Status"
+$Tag = ""
 
 Import-Module FailoverClusters
 
@@ -22,9 +22,20 @@ Function Send-JsonOverTcp {
     $Socket.Close()
 }
 
+###
+# Get Cluster Nodes Info
+###
+$Tag = "FOC-Nodes-Status"
+$ClusterNodes = Get-ClusterNode -Cluster $ClusterName | Select-Object -Property *,@{Name = 'Tag'; Expression = {$Tag}}
+$ClusterNodes = $ClusterNodes | ConvertTo-Json
+Send-JsonOverTcp $DocumentServer $DocumentServerPort "$ClusterNodes"
+
+###
+# Get Cluster Shared Volumes Info
+###
+$Tag = "FOC-CSV-Status"
 $CSVs = Get-ClusterSharedVolume -Cluster $ClusterName
 
-# Get Cluster Shared Volumes Info
 foreach ($CSV in $CSVs ){
     $CSVinfos = $CSV | Select-Object -Property Name,State -ExpandProperty SharedVolumeInfo
     foreach ( $CSVinfo in $CSVinfos ){
