@@ -22,10 +22,34 @@ Function Send-JsonOverTcp {
 Import-Module FailoverClusters
 
 ###
+# Get Cluster Info
+###
+$Tag = "foc-cluster-health"
+$Yesterday = (get-date).AddDays(-1)
+$ClusterOwnerNode = (Get-ClusterGroup -Cluster $ClusterName -Name "Cluster Group").OwnerNode.NodeName
+$ClusterInfo = Get-Cluster -Name $ClusterName | Select-Object -Property *
+$ClusterEvents = Get-WinEvent system -ComputerName $ClusterOwnerNode | Where-Object {$_.TimeCreated -ge $Yesterday} | Where-Object {($_.ProviderName -eq "Microsoft-Windows-FailoverClustering")}
+$ClusterEvents.Count
+
+$ClusterHealthObject = New-Object PSObject -Property @{
+    ClusterName             = $ClusterInfo.Name
+    AutoBalancerMode        = $ClusterInfo.AutoBalancerMode     # https://docs.microsoft.com/en-us/previous-versions/windows/desktop/mscs/clusters-autobalancermode
+    AutoBalancerLevel       = $ClusterInfo.AutoBalancerLevel   # https://docs.microsoft.com/en-us/previous-versions/windows/desktop/mscs/clusters-autobalancerlevel
+    ClusterOwnerNode        = $ClusterOwnerNode
+    ClusterEvents           = $ClusterEvents.Count
+    Tag                     = $Tag
+    #NodesCount
+    #RolesCount
+    #CSVCount
+}
+
+$ClusterHealthObject = $ClusterHealthObject | ConvertTo-Json
+Send-JsonOverTcp $DocumentServer $DocumentServerPort "$ClusterHealthObject"
+
+###
 # Get Cluster Nodes Info
 ###
 $Tag = "foc-nodes-status"
-$ClusterOwnerNode = (Get-ClusterGroup -Cluster $ClusterName -Name "Cluster Group").OwnerNode.NodeName
 $ClusterNodes = Get-ClusterNode -Cluster $ClusterName | Select-Object -Property *,@{Name = 'Tag'; Expression = {$Tag}}
 $ClusterNodes = $ClusterNodes | ConvertTo-Json
 Send-JsonOverTcp $DocumentServer $DocumentServerPort "$ClusterNodes"
