@@ -26,10 +26,10 @@ Import-Module FailoverClusters
 ###
 $Tag = "foc-cluster-health"
 $Yesterday = (get-date).AddDays(-1)
+$LastHour = (get-date).AddHours(-1)
 $ClusterOwnerNode = (Get-ClusterGroup -Cluster $ClusterName -Name "Cluster Group").OwnerNode.NodeName
 $ClusterInfo = Get-Cluster -Name $ClusterName | Select-Object -Property *
-$ClusterEvents = Get-WinEvent system -ComputerName $ClusterOwnerNode | Where-Object {$_.TimeCreated -ge $Yesterday} | Where-Object {($_.ProviderName -eq "Microsoft-Windows-FailoverClustering")}
-$ClusterEvents.Count
+$ClusterEvents = Get-WinEvent system -ComputerName $ClusterOwnerNode | Where-Object {$_.TimeCreated -ge $LastHour} | Where-Object {($_.ProviderName -eq "Microsoft-Windows-FailoverClustering")}
 
 $ClusterHealthObject = New-Object PSObject -Property @{
     ClusterName             = $ClusterInfo.Name
