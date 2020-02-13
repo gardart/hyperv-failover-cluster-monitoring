@@ -4,8 +4,6 @@ $ClusterName = "hvcluster"
 $DocumentServer = "192.168.5.26"
 $DocumentServerPort = "5551"
 
-Import-Module FailoverClusters
-
 Function Send-JsonOverTcp {
     param ( [ValidateNotNullOrEmpty()] 
     [string] $Ip, 
@@ -21,10 +19,13 @@ Function Send-JsonOverTcp {
     $Socket.Close()
 }
 
+Import-Module FailoverClusters
+
 ###
 # Get Cluster Nodes Info
 ###
 $Tag = "foc-nodes-status"
+$ClusterOwnerNode = (Get-ClusterGroup -Cluster $ClusterName -Name "Cluster Group").OwnerNode.NodeName
 $ClusterNodes = Get-ClusterNode -Cluster $ClusterName | Select-Object -Property *,@{Name = 'Tag'; Expression = {$Tag}}
 $ClusterNodes = $ClusterNodes | ConvertTo-Json
 Send-JsonOverTcp $DocumentServer $DocumentServerPort "$ClusterNodes"
