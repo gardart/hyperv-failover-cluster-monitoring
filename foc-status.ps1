@@ -4,6 +4,10 @@ $ClusterName = "hvcluster"
 $DocumentServer = "192.168.5.26"
 $DocumentServerPort = "5551"
 
+#region Functions
+#----------------
+
+# Send JSON data Over Tcp socket
 Function Send-JsonOverTcp {
     param ( [ValidateNotNullOrEmpty()] 
     [string] $Ip, 
@@ -19,14 +23,27 @@ Function Send-JsonOverTcp {
     $Socket.Close()
 }
 
+#endregion Functions
+
+#region Modules
+#----------------
+
 Import-Module FailoverClusters
 
-###
-# Get Cluster Info
-###
-$Tag = "foc-cluster-health"
+#endregion Modules
+
+#region Variables
+#----------------
+
 $Yesterday = (get-date).AddDays(-1)
 $LastHour = (get-date).AddHours(-1)
+
+#endregion Variables
+
+#region Gathering Cluster Information
+#-----------------------------------------
+ 
+$Tag = "foc-cluster-health"
 $ClusterOwnerNode = (Get-ClusterGroup -Cluster $ClusterName -Name "Cluster Group").OwnerNode.NodeName
 $ClusterInfo = Get-Cluster -Name $ClusterName | Select-Object -Property *
 $ClusterEvents = Get-WinEvent system -ComputerName $ClusterOwnerNode | Where-Object {$_.TimeCreated -ge $LastHour} | Where-Object {($_.ProviderName -eq "Microsoft-Windows-FailoverClustering")}
@@ -40,10 +57,10 @@ $ClusterInfoObject = New-Object PSObject -Property @{
     AutoBalancerLevel       = $ClusterInfo.AutoBalancerLevel   # https://docs.microsoft.com/en-us/previous-versions/windows/desktop/mscs/clusters-autobalancerlevel
     ClusterOwnerNode        = $ClusterOwnerNode
     ClusterEvents           = $ClusterEvents.Count
-    ClusterVMsRoles         = (Get-ClusterGroup -Cluster $ClusterName | ? { $_.GroupType –eq 'VirtualMachine' }).Count
+    ClusterVMRoles         = (Get-ClusterGroup -Cluster $ClusterName | ? { $_.GroupType –eq 'VirtualMachine' }).Count
     ClusterNodes            = (Get-ClusterNode -Cluster $ClusterName).Count
     ClusterCSVs             = (Get-ClusterSharedVolume -Cluster $ClusterName).Count
-    OfflineVMConfig         = $ClusterResourceData | where{($_.ResourceType -eq "Virtual Machine Configuration") -and ($_.State -ne "Online")}
+    OfflineVMConfig         = ($ClusterResourceData | where{($_.ResourceType -eq "Virtual Machine Configuration") -and ($_.State -ne "Online")}).Count
     Tag                     = $Tag
 }
 
@@ -83,3 +100,5 @@ foreach ($CSV in $CSVs ){
     $CSVinfo = $CSVObject | Select-Object FriendlyName, Path, State, Size, FreeSpace, UsedSpace, MaintenanceMode, FaultState, Tag | ConvertTo-Json
     Send-JsonOverTcp $DocumentServer $DocumentServerPort "$CSVinfo"
 }
+
+#endregion
