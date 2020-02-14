@@ -31,20 +31,24 @@ $ClusterOwnerNode = (Get-ClusterGroup -Cluster $ClusterName -Name "Cluster Group
 $ClusterInfo = Get-Cluster -Name $ClusterName | Select-Object -Property *
 $ClusterEvents = Get-WinEvent system -ComputerName $ClusterOwnerNode | Where-Object {$_.TimeCreated -ge $LastHour} | Where-Object {($_.ProviderName -eq "Microsoft-Windows-FailoverClustering")}
 
-$ClusterHealthObject = New-Object PSObject -Property @{
+# Get ClusterResource Data
+$ClusterResourceData = Get-ClusterResource -Cluster $ClusterName
+
+$ClusterInfoObject = New-Object PSObject -Property @{
     ClusterName             = $ClusterInfo.Name
     AutoBalancerMode        = $ClusterInfo.AutoBalancerMode     # https://docs.microsoft.com/en-us/previous-versions/windows/desktop/mscs/clusters-autobalancermode
     AutoBalancerLevel       = $ClusterInfo.AutoBalancerLevel   # https://docs.microsoft.com/en-us/previous-versions/windows/desktop/mscs/clusters-autobalancerlevel
     ClusterOwnerNode        = $ClusterOwnerNode
     ClusterEvents           = $ClusterEvents.Count
+    ClusterVMsRoles         = (Get-ClusterGroup -Cluster $ClusterName | ? { $_.GroupType –eq 'VirtualMachine' }).Count
+    ClusterNodes            = (Get-ClusterNode -Cluster $ClusterName).Count
+    ClusterCSVs             = (Get-ClusterSharedVolume -Cluster $ClusterName).Count
+    OfflineVMConfig         = $ClusterResourceData | where{($_.ResourceType -eq "Virtual Machine Configuration") -and ($_.State -ne "Online")}
     Tag                     = $Tag
-    #NodesCount
-    #RolesCount
-    #CSVCount
 }
 
-$ClusterHealthObject = $ClusterHealthObject | ConvertTo-Json
-Send-JsonOverTcp $DocumentServer $DocumentServerPort "$ClusterHealthObject"
+$ClusterInfoObject = $ClusterInfoObject | ConvertTo-Json
+Send-JsonOverTcp $DocumentServer $DocumentServerPort "$ClusterInfoObject"
 
 ###
 # Get Cluster Nodes Info
